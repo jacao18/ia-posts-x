@@ -1,1 +1,245 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IA Posts — X Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080810; --surface: #0f0f1a; --border: #1a1a2e;
+    --accent: #00ff88; --accent2: #ff3c6e; --accent3: #7c5cfc; --accent4: #ffb830;
+    --text: #eeeef8; --muted: #52527a; --card: #0d0d1c;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif; min-height: 100vh; overflow-x: hidden; }
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image: linear-gradient(rgba(0,255,136,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,136,.025) 1px,transparent 1px);
+    background-size: 44px 44px;
+  }
+  .container { max-width: 880px; margin: 0 auto; padding: 36px 20px 100px; position: relative; z-index: 1; }
+  header { text-align: center; margin-bottom: 48px; animation: fadeDown .6s ease both; }
+  .tag { display: inline-block; font-family: 'Space Mono',monospace; font-size: 10px; letter-spacing: 4px; text-transform: uppercase; color: var(--accent); border: 1px solid rgba(0,255,136,.4); padding: 4px 14px; border-radius: 2px; margin-bottom: 16px; }
+  h1 { font-size: clamp(36px,7vw,62px); font-weight: 800; line-height: 1.0; letter-spacing: -3px; }
+  h1 em { font-style: normal; color: var(--accent); }
+  .subtitle { margin-top: 12px; color: var(--muted); font-size: 14px; }
+  .tabs { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 24px; animation: fadeUp .5s ease .1s both; }
+  @media(max-width:600px){ .tabs { grid-template-columns: repeat(2,1fr); } }
+  .tab { font-family: 'Space Mono',monospace; font-size: 11px; padding: 10px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; transition: all .2s; text-align: center; line-height: 1.4; }
+  .tab:hover { border-color: var(--accent); color: var(--text); }
+  .tab[data-type="tips"].active   { border-color: var(--accent);  color: var(--accent);  background: rgba(0,255,136,.07); }
+  .tab[data-type="news"].active   { border-color: var(--accent2); color: var(--accent2); background: rgba(255,60,110,.07); }
+  .tab[data-type="apps"].active   { border-color: var(--accent3); color: var(--accent3); background: rgba(124,92,252,.07); }
+  .tab[data-type="thread"].active { border-color: var(--accent4); color: var(--accent4); background: rgba(255,184,48,.07); }
+  .gen-btn { width: 100%; padding: 17px; border: none; border-radius: 8px; font-family: 'Syne',sans-serif; font-size: 16px; font-weight: 800; letter-spacing: 1.5px; cursor: pointer; transition: all .25s; margin-bottom: 32px; position: relative; overflow: hidden; animation: fadeUp .5s ease .15s both; text-transform: uppercase; }
+  .gen-btn::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent); transform: translateX(-100%); transition: transform .5s; }
+  .gen-btn:hover::after { transform: translateX(100%); }
+  .gen-btn:hover { transform: translateY(-2px); }
+  .gen-btn:disabled { opacity: .4; cursor: not-allowed; transform: none !important; }
+  .gen-btn.tips-btn   { background: var(--accent);  color: #000; box-shadow: 0 4px 24px rgba(0,255,136,.2); }
+  .gen-btn.tips-btn:hover { box-shadow: 0 8px 36px rgba(0,255,136,.35); }
+  .gen-btn.news-btn   { background: var(--accent2); color: #fff; box-shadow: 0 4px 24px rgba(255,60,110,.2); }
+  .gen-btn.news-btn:hover { box-shadow: 0 8px 36px rgba(255,60,110,.35); }
+  .gen-btn.apps-btn   { background: var(--accent3); color: #fff; box-shadow: 0 4px 24px rgba(124,92,252,.2); }
+  .gen-btn.apps-btn:hover { box-shadow: 0 8px 36px rgba(124,92,252,.35); }
+  .gen-btn.thread-btn { background: var(--accent4); color: #000; box-shadow: 0 4px 24px rgba(255,184,48,.2); }
+  .gen-btn.thread-btn:hover { box-shadow: 0 8px 36px rgba(255,184,48,.35); }
+  .loading { display: none; text-align: center; padding: 56px 24px; color: var(--muted); }
+  .loading.visible { display: block; }
+  .spinner { width: 40px; height: 40px; border: 2px solid var(--border); border-radius: 50%; animation: spin .7s linear infinite; margin: 0 auto 16px; }
+  .tips-spin .spinner   { border-top-color: var(--accent); }
+  .news-spin .spinner   { border-top-color: var(--accent2); }
+  .apps-spin .spinner   { border-top-color: var(--accent3); }
+  .thread-spin .spinner { border-top-color: var(--accent4); }
+  .loading-text { font-family: 'Space Mono',monospace; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; }
+  .section-label { font-family: 'Space Mono',monospace; font-size: 10px; letter-spacing: 4px; text-transform: uppercase; color: var(--muted); margin-bottom: 18px; display: none; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+  .section-label.visible { display: block; }
+  .error-msg { display: none; background: rgba(255,60,110,.07); border: 1px solid rgba(255,60,110,.25); border-radius: 6px; padding: 14px 16px; color: var(--accent2); font-size: 13px; margin-bottom: 16px; font-family: 'Space Mono',monospace; line-height: 1.6; }
+  .error-msg.visible { display: block; }
+  .posts-grid { display: flex; flex-direction: column; gap: 20px; }
+  .post-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; animation: fadeUp .45s ease both; transition: transform .2s, border-color .2s, box-shadow .2s; }
+  .post-card:hover { transform: translateY(-3px); }
+  .post-card[data-cat="tips"]:hover   { border-color: rgba(0,255,136,.4);  box-shadow: 0 8px 32px rgba(0,255,136,.08); }
+  .post-card[data-cat="news"]:hover   { border-color: rgba(255,60,110,.4); box-shadow: 0 8px 32px rgba(255,60,110,.08); }
+  .post-card[data-cat="apps"]:hover   { border-color: rgba(124,92,252,.4); box-shadow: 0 8px 32px rgba(124,92,252,.08); }
+  .post-card[data-cat="thread"]:hover { border-color: rgba(255,184,48,.4); box-shadow: 0 8px 32px rgba(255,184,48,.08); }
+  .post-image-wrap { width: 100%; height: 220px; overflow: hidden; position: relative; background: var(--surface); }
+  .post-image-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .4s ease; }
+  .post-card:hover .post-image-wrap img { transform: scale(1.04); }
+  .img-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom,transparent 40%,rgba(8,8,16,.85) 100%); pointer-events: none; }
+  .img-badge { position: absolute; top: 14px; left: 14px; font-family: 'Space Mono',monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; padding: 4px 10px; border-radius: 3px; }
+  [data-cat="tips"]   .img-badge { background: rgba(0,255,136,.2);  color: var(--accent);  border: 1px solid rgba(0,255,136,.4); }
+  [data-cat="news"]   .img-badge { background: rgba(255,60,110,.2); color: var(--accent2); border: 1px solid rgba(255,60,110,.4); }
+  [data-cat="apps"]   .img-badge { background: rgba(124,92,252,.2); color: var(--accent3); border: 1px solid rgba(124,92,252,.4); }
+  [data-cat="thread"] .img-badge { background: rgba(255,184,48,.2); color: var(--accent4); border: 1px solid rgba(255,184,48,.4); }
+  .post-body { padding: 22px 24px 18px; }
+  .post-number { font-family: 'Space Mono',monospace; font-size: 9px; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 10px; opacity: .5; }
+  [data-cat="tips"]   .post-number { color: var(--accent); }
+  [data-cat="news"]   .post-number { color: var(--accent2); }
+  [data-cat="apps"]   .post-number { color: var(--accent3); }
+  [data-cat="thread"] .post-number { color: var(--accent4); }
+  .keyword-pill { display: inline-block; font-family: 'Space Mono',monospace; font-size: 9px; padding: 2px 8px; border-radius: 20px; margin-bottom: 12px; letter-spacing: 1px; text-transform: uppercase; opacity: .6; }
+  [data-cat="tips"]   .keyword-pill { background: rgba(0,255,136,.12);  color: var(--accent); }
+  [data-cat="news"]   .keyword-pill { background: rgba(255,60,110,.12); color: var(--accent2); }
+  [data-cat="apps"]   .keyword-pill { background: rgba(124,92,252,.12); color: var(--accent3); }
+  [data-cat="thread"] .keyword-pill { background: rgba(255,184,48,.12); color: var(--accent4); }
+  .post-text { font-size: 15.5px; line-height: 1.7; color: var(--text); white-space: pre-wrap; word-break: break-word; margin-bottom: 18px; }
+  .post-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 14px; border-top: 1px solid var(--border); gap: 12px; }
+  .char-count { font-family: 'Space Mono',monospace; font-size: 10px; letter-spacing: 1px; }
+  .char-count.ok   { color: var(--accent); }
+  .char-count.warn { color: var(--accent4); }
+  .char-count.over { color: var(--accent2); }
+  .action-btn { font-family: 'Space Mono',monospace; font-size: 10px; padding: 6px 14px; background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 4px; cursor: pointer; transition: all .2s; letter-spacing: 1px; }
+  [data-cat="tips"]   .action-btn:hover { border-color: var(--accent);  color: var(--accent); }
+  [data-cat="news"]   .action-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+  [data-cat="apps"]   .action-btn:hover { border-color: var(--accent3); color: var(--accent3); }
+  [data-cat="thread"] .action-btn:hover { border-color: var(--accent4); color: var(--accent4); }
+  .empty { text-align: center; padding: 72px 24px; color: var(--muted); animation: fadeUp .4s ease both; }
+  .empty-icon { font-size: 52px; margin-bottom: 18px; }
+  .empty p { font-size: 14px; line-height: 1.7; }
+  @keyframes fadeDown { from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)} }
+  @keyframes fadeUp   { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes spin     { to{transform:rotate(360deg)} }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="tag">X · Twitter · IA Content</div>
+    <h1>Post<em>Generator</em></h1>
+    <p class="subtitle">Posts que param o scroll — gerados por IA com imagens reais</p>
+  </header>
+  <div class="tabs">
+    <button class="tab" data-type="tips">💡 Dicas &amp; Hacks</button>
+    <button class="tab" data-type="news">📡 Notícias</button>
+    <button class="tab" data-type="apps">🔭 Apps Secretos</button>
+    <button class="tab" data-type="thread">🧵 Thread Viral</button>
+  </div>
+  <button class="gen-btn tips-btn" id="generateBtn">⚡ Gerar Posts com Imagens</button>
+  <div class="error-msg" id="errorMsg"></div>
+  <div class="loading" id="loading"><div class="spinner"></div><p class="loading-text" id="loadingText">Gerando posts...</p></div>
+  <div class="section-label" id="sectionLabel"></div>
+  <div class="posts-grid" id="postsGrid">
+    <div class="empty"><div class="empty-icon">✦</div><p>Escolha uma categoria e clique em<br><strong>Gerar Posts com Imagens</strong></p></div>
+  </div>
+</div>
+<script>
+const UNSPLASH_IDS = {
+  tips:['photo-1677442135703-1787eea5ce01','photo-1620712943543-bcc4688e7485','photo-1558494949-ef010cbdcc31','photo-1526374965328-7f61d4dc18c5','photo-1509228468518-180841e3ebe5'],
+  news:['photo-1504711434969-e33886168f5c','photo-1518770660439-4636190af475','photo-1451187580459-43490279c0fa','photo-1486312338219-ce68d2c6f44d','photo-1573164713714-d95e436ab8d6'],
+  apps:['photo-1512941937669-90a1b58e7e9c','photo-1551650975-87deedd944c3','photo-1555066931-4365d14bab8c','photo-1467232004584-a241de8bcf5d','photo-1498050108023-c5249f4df085'],
+  thread:['photo-1456513080510-7bf3a84b82f8','photo-1488190211105-8b0e65b80b4e','photo-1516321165247-4aa89a48be63','photo-1527474305487-b87b222841cc','photo-1507003211169-0a1dd7228f2d']
+};
+const LABELS  = {tips:'💡 DICAS & HACKS',news:'📡 NOTÍCIAS',apps:'🔭 APPS SECRETOS',thread:'🧵 THREAD VIRAL'};
+const BADGES  = {tips:'HACK',news:'BREAKING',apps:'TOOL DROP',thread:'THREAD'};
+const BTN_CLS = {tips:'tips-btn',news:'news-btn',apps:'apps-btn',thread:'thread-btn'};
+const SPIN_CLS= {tips:'tips-spin',news:'news-spin',apps:'apps-spin',thread:'thread-spin'};
+const PROMPTS = {
+  tips:`Você é um criador de conteúdo top 1% no X especializado em IA. Crie 4 posts VIRAIS sobre dicas e hacks de IA.
+GANCHOS (use um diferente por post):
+- "99% das pessoas usam [ferramenta] errado. O jeito certo:"
+- "Descobri um prompt que [resultado]. Testei 47 vezes. Funciona."
+- "[N] minutos de setup = [resultado concreto] por semana"
+- "Parei de fazer [tarefa]. A IA faz por mim em [tempo]. Como:"
+REGRAS: 220-270 chars, PT-BR coloquial, 1-2 emojis máx, mencione modelos reais (GPT-4, Claude, Gemini), resultado concreto e mensurável.
+Retorne APENAS JSON puro sem markdown:
+{"posts":[{"text":"post","imageKeyword":"2-3 words EN"},{"text":"post","imageKeyword":"..."},{"text":"post","imageKeyword":"..."},{"text":"post","imageKeyword":"..."}]}`,
+  news:`Você é jornalista de tecnologia cobrindo IA no X. Crie 4 posts impactantes sobre novidades reais de IA.
+GANCHOS:
+- "[Empresa] acaba de [ação]. O que muda: [implicação]"
+- "Novo estudo mostra [descoberta]. Implicação: [consequência]"
+- "Funding alert: [startup] levantou $[X]M para [objetivo]"
+REGRAS: 220-270 chars, PT-BR, mencione empresas reais (OpenAI, Anthropic, Google DeepMind, Meta AI, Mistral), só fatos certos.
+Retorne APENAS JSON puro sem markdown:
+{"posts":[{"text":"post","imageKeyword":"2-3 words EN"},{"text":"post","imageKeyword":"..."},{"text":"post","imageKeyword":"..."},{"text":"post","imageKeyword":"..."}]}`,
+  apps:`Você descobre ferramentas de IA antes de todo mundo. Crie 4 posts apresentando apps pouco conhecidos mas poderosos.
+GANCHOS:
+- "Essa ferramenta de IA me fez economizar [X horas]/semana e quase ninguém conhece:"
+- "[Nome] é o que o [produto famoso] deveria ser. Por quê:"
+- "Encontrei uma IA que [tarefa] em [tempo]. Gratuita."
+REGRAS: 220-270 chars, PT-BR, OBRIGATÓRIO nome REAL da ferramenta (Perplexity, Elicit, Gamma, NotebookLM, Cursor, v0, ElevenLabs, Pika, Descript, Udio, etc.), NÃO use ChatGPT como principal.
+Retorne APENAS JSON puro sem markdown:
+{"posts":[{"text":"post","imageKeyword":"2-3 words EN"},{"text":"post","imageKeyword":"..."},{"text":"post","imageKeyword":"..."},{"text":"post","imageKeyword":"..."}]}`,
+  thread:`Você é educador de IA com 500k seguidores. Crie uma thread de 6 posts sobre um tema profundo e único de IA.
+ESTRUTURA: Post 1: 160-220 chars + "🧵". Posts 2-5: 230-270 chars, numerados (2/ 3/ 4/ 5/). Post 6: síntese + "RT se útil".
+REGRAS: PT-BR fluido, técnico mas acessível, exemplos concretos.
+Retorne APENAS JSON puro sem markdown:
+{"posts":[{"text":"post","imageKeyword":"2-3 words EN"},{"text":"post","imageKeyword":"..."},{"text":"post","imageKeyword":"..."},{"text":"post","imageKeyword":"..."},{"text":"post","imageKeyword":"..."},{"text":"post","imageKeyword":"..."}]}`
+};
 
+let currentType = 'tips';
+
+function setActiveTab(type) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelector(`.tab[data-type="${type}"]`).classList.add('active');
+  document.getElementById('generateBtn').className = 'gen-btn ' + BTN_CLS[type];
+  currentType = type;
+}
+document.querySelectorAll('.tab').forEach(tab=>tab.addEventListener('click',()=>setActiveTab(tab.dataset.type)));
+setActiveTab('tips');
+
+async function generatePosts() {
+  const btn=document.getElementById('generateBtn');
+  const loading=document.getElementById('loading');
+  const grid=document.getElementById('postsGrid');
+  const errorMsg=document.getElementById('errorMsg');
+  const label=document.getElementById('sectionLabel');
+  const loadingText=document.getElementById('loadingText');
+  btn.disabled=true; grid.innerHTML=''; errorMsg.className='error-msg'; label.className='section-label';
+  loading.className=`loading visible ${SPIN_CLS[currentType]}`;
+  const msgs=['Gerando conteúdo viral...','Calibrando ganchos...','Buscando imagens...','Finalizando posts...'];
+  let mi=0; loadingText.textContent=msgs[0];
+  const iv=setInterval(()=>{mi=(mi+1)%msgs.length;loadingText.textContent=msgs[mi];},1800);
+  try {
+    const res = await fetch('/api/generate', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1000,messages:[{role:'user',content:PROMPTS[currentType]}]})
+    });
+    clearInterval(iv);
+    const data = await res.json();
+    const raw = (data.content||[]).map(b=>b.text||'').join('');
+    const clean = raw.replace(/```json|```/g,'').trim();
+    let parsed;
+    try { parsed=JSON.parse(clean); } catch { throw new Error('Falha ao interpretar resposta. Tente novamente.'); }
+    const posts = parsed.posts||[];
+    if (!posts.length) throw new Error('Nenhum post gerado. Tente novamente.');
+    loading.className='loading';
+    label.textContent=LABELS[currentType]; label.className='section-label visible';
+    const ids=UNSPLASH_IDS[currentType]||UNSPLASH_IDS['tips'];
+    const badge=BADGES[currentType];
+    posts.forEach((item,i)=>{
+      const text=typeof item==='string'?item:(item.text||'');
+      const kw=typeof item==='object'?(item.imageKeyword||''):'';
+      const photoId=ids[i%ids.length];
+      const imgSrc=`https://images.unsplash.com/${photoId}?w=800&h=440&fit=crop&auto=format&q=80`;
+      const card=document.createElement('div');
+      card.className='post-card'; card.dataset.cat=currentType; card.style.animationDelay=(i*100)+'ms';
+      const len=text.length; const cc=len<=240?'ok':len<=280?'warn':'over';
+      const imgWrap=document.createElement('div'); imgWrap.className='post-image-wrap';
+      const imgLoad=document.createElement('div'); imgLoad.className='img-loading'; imgLoad.textContent='LOADING...';
+      imgWrap.appendChild(imgLoad);
+      const img=document.createElement('img'); img.alt=kw; img.style.display='none';
+      img.onload=()=>{imgLoad.remove();img.style.display='block';};
+      img.onerror=()=>{img.onerror=null;img.src=`https://picsum.photos/seed/${i+42}/800/440`;img.style.display='block';imgLoad.remove();};
+      img.src=imgSrc; imgWrap.appendChild(img);
+      const ov=document.createElement('div'); ov.className='img-overlay'; imgWrap.appendChild(ov);
+      const bdg=document.createElement('div'); bdg.className='img-badge'; bdg.textContent=badge; imgWrap.appendChild(bdg);
+      card.appendChild(imgWrap);
+      const body=document.createElement('div'); body.className='post-body';
+      body.innerHTML=`<div class="post-number">POST ${String(i+1).padStart(2,'0')} / ${String(posts.length).padStart(2,'0')}</div>${kw?`<div class="keyword-pill">${escH(kw)}</div>`:''}<div class="post-text">${escH(text)}</div><div class="post-footer"><span class="char-count ${cc}">${len} chars</span><button class="action-btn" onclick="doCopy(this,'${escA(text)}')">COPIAR</button></div>`;
+      card.appendChild(body); grid.appendChild(card);
+    });
+  } catch(err) {
+    clearInterval(iv); loading.className='loading';
+    errorMsg.textContent='⚠ '+( err.message||'Erro desconhecido.'); errorMsg.className='error-msg visible';
+  } finally { btn.disabled=false; }
+}
+function doCopy(btn,text){navigator.clipboard.writeText(text).then(()=>{btn.textContent='✓ COPIADO';setTimeout(()=>btn.textContent='COPIAR',2000);});}
+function escH(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function escA(s){return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n');}
+document.getElementById('generateBtn').addEventListener('click',generatePosts);
+</script>
+</body>
+</html>
